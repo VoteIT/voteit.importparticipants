@@ -31,31 +31,30 @@ class CSVParticipantValidator(object):
         
         users = find_root(self.context).users
         
-        data = StringIO(value)
-        
-        # guess dialect of csv file
-        dialect = csv.Sniffer().sniff(data.read(1024))
-        data.seek(0)
-        
         nouserid = set()
         invalid = set()
         notunique = set()
         password = set()
-        row_count = 0 
-        for row in csv.reader(data, dialect):
-            row_count = row_count + 1
-            if not row[0]:
-                nouserid.add("%s" % row_count) 
-            if row[0] and not NEW_USERID_PATTERN.match(row[0]):
-                invalid.add(row[0])
-            if row[0] in users:
-                notunique.add(row[0])
-            # only validate password if there is a password
-            if row[1]:
-                try:
-                    password_validation(node, row[1])
-                except colander.Invalid:
-                    password.add("%s" % row_count)
+        row_count = 0
+        try:
+            for row in csv.reader(StringIO(value), delimiter=';', quotechar='"'):
+                row_count = row_count + 1
+                if not row[0]:
+                    nouserid.add("%s" % row_count) 
+                if row[0] and not NEW_USERID_PATTERN.match(row[0]):
+                    invalid.add(row[0])
+                if row[0] in users:
+                    notunique.add(row[0])
+                # only validate password if there is a password
+                if len(row) > 1 and row[1]:
+                    try:
+                        password_validation(node, row[1])
+                    except colander.Invalid:
+                        password.add("%s" % row_count)
+        except IndexError:
+            raise colander.Invalid(node, _('add_participants_invalid_csv',
+                                           default=u"""CSV file is not valid, make sure at least userid is specified on 
+                                           each row and field delimiter is ; and text delimiter is " """))
 
         msgs = []
         if nouserid: 

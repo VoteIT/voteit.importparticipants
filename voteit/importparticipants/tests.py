@@ -141,6 +141,13 @@ class CSVParticipantValidatorTests(unittest.TestCase):
         node = None
         obj(node, "user1;password1;user1@test.com;Dummy;User\n")
         
+    def test_good_short(self):
+        context = self._fixture()
+        api = self._api(context)
+        obj = self._cut(context, api)
+        node = None
+        obj(node, "user1")
+        
     def test_no_username(self):
         context = self._fixture()
         api = self._api(context)
@@ -168,4 +175,10 @@ class CSVParticipantValidatorTests(unittest.TestCase):
         obj = self._cut(context, api)
         node = None
         self.assertRaises(colander.Invalid, obj, node, "user1;pwd;user1@test.com;Dummy;User\n")
-        
+    
+    def test_bad_csv_wrong_delimiter(self):
+        context = self._fixture()
+        api = self._api(context)
+        obj = self._cut(context, api)
+        node = None
+        self.assertRaises(colander.Invalid, obj, node, "user1,pwd,user1@test.com,Dummy,User\n")
