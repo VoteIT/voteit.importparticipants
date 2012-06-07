@@ -27,6 +27,46 @@ from voteit.importparticipants import VoteITImportParticipants as _
 
 class AddParticipantsView(BaseView):
     
+    def generate_password(self):
+        chars = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789#$%&'
+        return ''.join(random.choice(chars) for x in range(10))
+    
+    def import_participants(self, participants, roles):
+        output = []
+        for row in participants:
+            appstruct = {}
+            userid = row[0]
+            if len(row) > 1 and row[1]:
+                appstruct['password'] = row[1]
+            else:
+                appstruct['password'] = self.generate_password()
+            if len(row) > 2 and row[2]:
+                appstruct['email'] = row[2]
+            else:
+                appstruct['email'] = ''
+            if len(row) > 3 and row[3]:
+                appstruct['first_name'] = row[3]
+            else:
+                appstruct['first_name'] = ''
+            if len(row) > 4 and row[4]:
+                appstruct['last_name'] = row[4]
+            else:
+                appstruct['last_name'] = ''
+            
+            # add user to root
+            from betahaus.pyracont import generate_slug
+            userid = generate_slug(self.api.root.users, userid)
+            user = createContent('User', creators=[userid], **appstruct)
+            self.api.root.users[userid] = user
+            
+            # add user to meeting
+            self.context.add_groups(userid, roles, event = True)
+            
+            appstruct['userid'] = userid
+            output.append(appstruct)
+            
+        return output
+    
     @view_config(name="add_participants", context=IMeeting, renderer="voteit.core.views:templates/base_edit.pt", permission=security.MANAGE_GROUPS)
     def add_participants(self):
         """ Add participants to this meeting.
@@ -59,35 +99,12 @@ class AddParticipantsView(BaseView):
             roles = appstruct['roles']
             participants = csv.reader(StringIO(appstruct['csv']), delimiter=';', quotechar='"')
 
-            output = []
-            participant_count = 0
-            for row in participants:
-                appstruct = {}
-                userid = row[0]
-                appstruct['password'] = row[1]
-                if not appstruct['password']:
-                    chars = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789#$%&'
-                    appstruct['password'] = row[1] = ''.join(random.choice(chars) for x in range(10))
-                appstruct['email'] = row[2]
-                appstruct['first_name'] = row[3]
-                appstruct['last_name'] = row[4]
-                
-                # add user to root
-                from betahaus.pyracont import generate_slug
-                userid = row[0] = generate_slug(self.api.root, userid)
-                user = createContent('User', creators=[userid], **appstruct)
-                self.api.root.users[userid] = user
-                
-                # add user to meeting
-                self.context.add_groups(userid, roles, event = True)
-                
-                output.append(row)
-                participant_count = participant_count + 1
+            output = self.import_participants(participants, roles)
                           
-            msg = _('added_participants_text', default=u"Successfully added ${participant_count} participants", mapping={'participant_count':participant_count} )
+            msg = _('added_participants_text', default=u"Successfully added ${participant_count} participants", mapping={'participant_count':len(output)} )
             self.api.flash_messages.add(msg)
             
-            self.response['heading'] = "%s %s" % (participant_count, self.api.pluralize(self.api.translate(_("participant added")), self.api.translate(_("participants added")), participant_count))
+            self.response['heading'] = "%s %s" % (len(output), self.api.pluralize(self.api.translate(_("participant added")), self.api.translate(_("participants added")), len(output)))
             self.response['participants'] = output
             return Response(render("add_participants.pt", self.response, request = self.request))
 
