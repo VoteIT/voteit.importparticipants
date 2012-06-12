@@ -7,6 +7,7 @@ from pyramid.traversal import find_root
 
 from voteit.core.validators import html_string_validator
 from voteit.core.validators import password_validation
+from voteit.core.validators import UniqueEmail
 from voteit.core.validators import NEW_USERID_PATTERN
 
 from voteit.importparticipants import VoteITImportParticipants as _
@@ -34,10 +35,14 @@ class CSVParticipantValidator(object):
         nouserid = set()
         invalid = set()
         notunique = set()
+        email = set()
         password = set()
         row_count = 0
+        # the value shoud be in unicode from colander and csv wants ascii or utf-8 
+        value = value.encode('UTF-8')
+        data = csv.reader(StringIO(value), delimiter=';', quotechar='"')
         try:
-            for row in csv.reader(StringIO(value), delimiter=';', quotechar='"'):
+            for row in data:
                 row_count = row_count + 1
                 if not row[0]:
                     nouserid.add("%s" % row_count) 
@@ -45,6 +50,12 @@ class CSVParticipantValidator(object):
                     invalid.add(row[0])
                 if row[0] in users:
                     notunique.add(row[0])
+                # only validate email if there is an email
+                if len(row) > 2 and row[2]:
+                    try:
+                        UniqueEmail(self.context)(node, row[2])
+                    except colander.Invalid:
+                        email.add("%s" % row[2])
                 # only validate password if there is a password
                 if len(row) > 1 and row[1]:
                     try:
@@ -71,6 +82,11 @@ class CSVParticipantValidator(object):
             msgs.append(self.api.translate(_('add_participants_notunique_error',
                     default=u"The following userids is already registered: ${notunique}.",
                     mapping={'notunique': notunique})))
+        if email: 
+            email = ", ".join(email)
+            msgs.append(self.api.translate(_('add_participants_email_error',
+                    default=u"The following email addresses is invalid or already registered: ${email}.",
+                    mapping={'email': email})))
         if password: 
             password = ", ".join(password)
             msgs.append(self.api.translate(_('add_participants_password_error',

@@ -1,3 +1,5 @@
+ # -*- coding: UTF-8 -*-
+
 import unittest
 
 from pyramid import testing
@@ -139,46 +141,67 @@ class CSVParticipantValidatorTests(unittest.TestCase):
         api = self._api(context)
         obj = self._cut(context, api)
         node = None
-        obj(node, "user1;password1;user1@test.com;Dummy;User\n")
+        obj(node, u"user1;password1;user1@test.com;Dummy;User\n")
+
+    def test_good_nonascii(self):
+        context = self._fixture()
+        api = self._api(context)
+        obj = self._cut(context, api)
+        node = None
+        obj(node, u"user1;password1;user1@test.com;Dömmy;Üser\n")
         
     def test_good_short(self):
         context = self._fixture()
         api = self._api(context)
         obj = self._cut(context, api)
         node = None
-        obj(node, "user1")
+        obj(node, u"user1")
         
     def test_no_username(self):
         context = self._fixture()
         api = self._api(context)
         obj = self._cut(context, api)
         node = None
-        self.assertRaises(colander.Invalid, obj, node, ";password1;user1@test.com;Dummy;User\n")
+        self.assertRaises(colander.Invalid, obj, node, u";password1;user1@test.com;Dummy;User\n")
 
     def test_bad_username(self):
         context = self._fixture()
         api = self._api(context)
         obj = self._cut(context, api)
         node = None
-        self.assertRaises(colander.Invalid, obj, node, "User1;password1;user1@test.com;Dummy;User\n")
+        self.assertRaises(colander.Invalid, obj, node, u"User1;password1;user1@test.com;Dummy;User\n")
         
-    def test_not_unique(self):
+    def test_not_unique_username(self):
         context = self._fixture()
         api = self._api(context)
         obj = self._cut(context, api)
         node = None
-        self.assertRaises(colander.Invalid, obj, node, "tester;password1;user1@test.com;Dummy;User\n")
+        self.assertRaises(colander.Invalid, obj, node, u"tester;password1;user1@test.com;Dummy;User\n")
+        
+    def test_bad_email(self):
+        context = self._fixture()
+        api = self._api(context)
+        obj = self._cut(context, api)
+        node = None
+        self.assertRaises(colander.Invalid, obj, node, u"user1;password1;user1@test;Dummy;User\n")
+        
+    def test_not_unique_email(self):
+        context = self._fixture()
+        api = self._api(context)
+        obj = self._cut(context, api)
+        node = None
+        self.assertRaises(colander.Invalid, obj, node, u"user1;tester@voteit.se;Dummy;User\n")
 
     def test_bad_password(self):
         context = self._fixture()
         api = self._api(context)
         obj = self._cut(context, api)
         node = None
-        self.assertRaises(colander.Invalid, obj, node, "user1;pwd;user1@test.com;Dummy;User\n")
+        self.assertRaises(colander.Invalid, obj, node, u"user1;pwd;user1@test.com;Dummy;User\n")
     
     def test_bad_csv_wrong_delimiter(self):
         context = self._fixture()
         api = self._api(context)
         obj = self._cut(context, api)
         node = None
-        self.assertRaises(colander.Invalid, obj, node, "user1,pwd,user1@test.com,Dummy,User\n")
+        self.assertRaises(colander.Invalid, obj, node, u"user1,pwd,user1@test.com,Dummy,User\n")
