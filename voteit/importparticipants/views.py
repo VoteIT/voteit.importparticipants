@@ -25,11 +25,13 @@ from voteit.core.helpers import generate_slug
 from voteit.importparticipants import VoteITImportParticipants as _
 
 
+_PW_CHARS = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+
+
 class AddParticipantsView(BaseView):
     
     def generate_password(self):
-        chars = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789#$%&'
-        return ''.join(random.choice(chars) for x in range(10))
+        return ''.join(random.choice(_PW_CHARS) for x in range(10))
     
     def import_participants(self, participants, roles):
         output = []
