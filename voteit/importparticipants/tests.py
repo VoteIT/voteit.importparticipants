@@ -2,18 +2,18 @@
 
 import unittest
 
-from pyramid import testing
-from webob.multidict import MultiDict
-
 import colander
-
+from pyramid import testing
+from pyramid.response import Response
+from webob.multidict import MultiDict
 from voteit.core.testing_helpers import bootstrap_and_fixture
 from voteit.core import security
 from voteit.core.models.user import User
 from voteit.core.models.meeting import Meeting
 
 
-class AddParticipantsViewViewTests(unittest.TestCase):
+
+class AddParticipantsViewTests(unittest.TestCase):
     
     def setUp(self):
         self.config = testing.setUp()
@@ -25,55 +25,34 @@ class AddParticipantsViewViewTests(unittest.TestCase):
     def _cut(self):
         from voteit.importparticipants.views import AddParticipantsView
         return AddParticipantsView
-    
-    def _fixture(self):
-        """ Normal context for this view is an agenda item. """
-        from voteit.core.models.meeting import Meeting
-        root = bootstrap_and_fixture(self.config)
-        root['m'] = meeting = Meeting()
-        return meeting
-
-    def _load_vcs(self):
-        self.config.registry.settings['default_timezone_name'] = "Europe/Stockholm"
-        self.config.registry.settings['default_locale_name'] = 'sv'
-        self.config.include('voteit.core.models.date_time_util')
-        self.config.scan('voteit.core.views.components.main')
-        self.config.scan('voteit.core.views.components.meeting')
-        self.config.scan('voteit.core.views.components.head')
-        self.config.scan('voteit.core.views.components.global_actions')
-        self.config.scan('voteit.core.views.components.meeting_actions')
-        self.config.scan('voteit.core.views.components.navigation')
-        self.config.scan('voteit.core.views.components.help_actions')
         
-    def test_add_participants(self):
+    def test_add_participants_render_form(self):
         self.config.scan('voteit.importparticipants.schemas')
-        self.config.include('voteit.core.models.flash_messages')
         self.config.testing_securitypolicy(userid='dummy',
                                            permissive=True)
-        context = self._fixture()
+        context = _meeting_fixture(self.config)
         request = testing.DummyRequest()
         obj = self._cut(context, request)
         response = obj.add_participants()
         self.assertIn('form', response)
-        
+
     def test_add_participants_cancel(self):
         self.config.scan('voteit.importparticipants.schemas')
         self.config.include('voteit.core.models.flash_messages')
         self.config.testing_securitypolicy(userid='dummy',
                                            permissive=True)
-        context = self._fixture()
+        context = _meeting_fixture(self.config)
         request = testing.DummyRequest(post={'cancel': 'cancel'})
         obj = self._cut(context, request)
         response = obj.add_participants()
         self.assertEqual(response.location, 'http://example.com/m/')
-        
+
     def test_add_participants_save(self):
         self.config.scan('voteit.importparticipants.schemas')
-        self.config.include('voteit.core.models.flash_messages')
         self.config.testing_securitypolicy(userid='admin',
                                            permissive=True)
-        self._load_vcs()
-        context = self._fixture()
+        _tz_vc_fixture(self.config)
+        context = _meeting_fixture(self.config)
         request = testing.DummyRequest(post = MultiDict([('csv', 'user1;;user1@test.com;Dummy;User\n'),
                                                          ('__start__', 'roles:sequence'),
                                                          ('checkbox', 'role:Admin'),
@@ -85,10 +64,9 @@ class AddParticipantsViewViewTests(unittest.TestCase):
         
     def test_add_participants_validation_error(self):
         self.config.scan('voteit.importparticipants.schemas')
-        self.config.include('voteit.core.models.flash_messages')
         self.config.testing_securitypolicy(userid='dummy',
                                            permissive=True)
-        context = self._fixture()
+        context = _meeting_fixture(self.config)
         request = testing.DummyRequest(post = MultiDict([('csv', ';password1;user1@test.com;Dummy;User\n'),
                                                          ('__start__', 'roles:sequence'),
                                                          ('checkbox', 'role:Admin'),
@@ -97,7 +75,7 @@ class AddParticipantsViewViewTests(unittest.TestCase):
         obj = self._cut(context, request)
         response = obj.add_participants()
         self.assertIn('form', response)
- 
+         
         
 class CSVParticipantValidatorTests(unittest.TestCase):
 
@@ -205,3 +183,58 @@ class CSVParticipantValidatorTests(unittest.TestCase):
         obj = self._cut(context, api)
         node = None
         self.assertRaises(colander.Invalid, obj, node, u"user1,pwd,user1@test.com,Dummy,User\n")
+
+
+class FunctionalTests(unittest.TestCase):
+    """ Important note about responses - if something goes wrong,
+        the view will return a dict and not a Response-object.
+        The dict won't have a body, so the test might return error instead of fail.
+    """
+    def setUp(self):
+        self.config = testing.setUp()
+        _tz_vc_fixture(self.config)
+        self.config.scan('voteit.importparticipants.schemas')
+
+    def tearDown(self):
+        testing.tearDown()
+    
+    @property
+    def _cut(self):
+        from voteit.importparticipants.views import AddParticipantsView
+        return AddParticipantsView
+
+    def _make_request(self, csv, roles=('role:Viewer',), add = 'add', **kw):
+        params = []
+        params.append(('csv', csv))
+        params.append(('__start__', 'roles:sequence'))
+        for role in roles:
+            params.append(('checkbox', role))
+        params.append(('__end__', 'roles:sequence'))
+        params.append(('add', add))
+        return testing.DummyRequest(post = MultiDict(params), **kw)
+
+    def test_no_pw(self):
+        self.config.testing_securitypolicy(userid='admin',
+                                           permissive=True)
+        _tz_vc_fixture(self.config)
+        context = _meeting_fixture(self.config)
+        csv = "user1;;user1@test.com;Dummy;User\n"
+        request = self._make_request(csv)
+        obj = self._cut(context, request)
+        response = obj.add_participants()
+        self.assertIsInstance(response, Response)
+        self.assertIn('1 participant added', response.body)
+
+
+def _meeting_fixture(config):
+    from voteit.core.models.meeting import Meeting
+    root = bootstrap_and_fixture(config)
+    root['m'] = meeting = Meeting()
+    return meeting
+
+def _tz_vc_fixture(config):
+    config.registry.settings['default_timezone_name'] = "Europe/Stockholm"
+    config.registry.settings['default_locale_name'] = 'sv'
+    config.include('voteit.core.models.date_time_util')
+    config.include('voteit.core.models.flash_messages')
+    config.scan('voteit.core.views.components')
