@@ -30,30 +30,33 @@ _PW_CHARS = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 class AddParticipantsView(BaseView):
     
-    def generate_password(self):
+    def _generate_password(self):
         return ''.join(random.choice(_PW_CHARS) for x in range(10))
     
-    def import_participants(self, participants, roles):
+    def _import_participants(self, input, roles):
+        # the value shoud be in unicode from colander and csv wants ascii or utf-8
+        input = input.encode('UTF-8')
+        participants = csv.reader(StringIO(input), delimiter=';', quotechar='"')
         output = []
         for row in participants:
             appstruct = {}
-            userid = row[0]
+            userid = unicode(row[0])
             if len(row) > 1 and row[1]:
-                appstruct['password'] = row[1]
+                appstruct['password'] = unicode(row[1])
             else:
-                appstruct['password'] = self.generate_password()
+                appstruct['password'] = self._generate_password()
             if len(row) > 2 and row[2]:
-                appstruct['email'] = row[2]
+                appstruct['email'] = unicode(row[2])
             else:
-                appstruct['email'] = ''
+                appstruct['email'] = u""
             if len(row) > 3 and row[3]:
-                appstruct['first_name'] = row[3]
+                appstruct['first_name'] = row[3].decode('UTF-8')
             else:
-                appstruct['first_name'] = ''
+                appstruct['first_name'] = u""
             if len(row) > 4 and row[4]:
-                appstruct['last_name'] = row[4]
+                appstruct['last_name'] = row[4].decode('UTF-8')
             else:
-                appstruct['last_name'] = ''
+                appstruct['last_name'] = u""
             
             # add user to root
             from betahaus.pyracont import generate_slug
@@ -99,9 +102,8 @@ class AddParticipantsView(BaseView):
                 return self.response
             
             roles = appstruct['roles']
-            participants = csv.reader(StringIO(appstruct['csv']), delimiter=';', quotechar='"')
 
-            output = self.import_participants(participants, roles)
+            output = self._import_participants(appstruct['csv'], roles)
                           
             msg = _('added_participants_text', default=u"Successfully added ${participant_count} participants", mapping={'participant_count':len(output)} )
             self.api.flash_messages.add(msg)

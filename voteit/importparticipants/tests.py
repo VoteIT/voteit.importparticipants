@@ -25,12 +25,101 @@ class AddParticipantsViewTests(unittest.TestCase):
     def _cut(self):
         from voteit.importparticipants.views import AddParticipantsView
         return AddParticipantsView
+    
+    def _meeting_fixture(self):
+        from voteit.core.models.meeting import Meeting
+        root = bootstrap_and_fixture(self.config)
+        root['m'] = meeting = Meeting()
+        return meeting
+
+    def _tz_vc_fixture(self):
+        self.config.registry.settings['default_timezone_name'] = "Europe/Stockholm"
+        self.config.registry.settings['default_locale_name'] = 'sv'
+        self.config.include('voteit.core.models.date_time_util')
+        self.config.include('voteit.core.models.flash_messages')
+        self.config.scan('voteit.core.views.components')
+    
+    def test__generate_password(self):
+        context = self._meeting_fixture()
+        request = testing.DummyRequest()
+        obj = self._cut(context, request)
+        value = obj._generate_password()
+        self.assertEqual(len(value), 10)
+    
+    def test__import_participants(self):
+        context = self._meeting_fixture()
+        request = testing.DummyRequest()
+        obj = self._cut(context, request)
+        output = obj._import_participants(u"user1;password1;user1@test.com;Dummy;User\n", ("role:Admin", ))
+        self.assertEqual(len(output), 1)
+        self.assertEqual(len(output[0]), 5)
+        self.assertEqual(output[0]['password'], u'password1')
+        self.assertEqual(output[0]['email'], u'user1@test.com')
+        self.assertEqual(output[0]['first_name'], u'Dummy')
+        self.assertEqual(output[0]['last_name'], u'User')
+        
+    def test__import_participants_empty_password(self):
+        context = self._meeting_fixture()
+        request = testing.DummyRequest()
+        obj = self._cut(context, request)
+        output = obj._import_participants(u"user1;;user1@test.com;Dummy;User\n", ("role:Admin", ))
+        self.assertEqual(len(output), 1)
+        self.assertEqual(len(output[0]), 5)
+        self.assertNotEqual(output[0]['password'], u'')
+        
+    def test__import_participants_short(self):
+        context = self._meeting_fixture()
+        request = testing.DummyRequest()
+        obj = self._cut(context, request)
+        output = obj._import_participants(u"user1\n", ("role:Admin", ))
+        self.assertEqual(len(output), 1)
+        self.assertEqual(len(output[0]), 5)
+        self.assertNotEqual(output[0]['password'], u"")
+        self.assertEqual(output[0]['email'], u"")
+        self.assertEqual(output[0]['first_name'], u"")
+        self.assertEqual(output[0]['last_name'], u"")
+        
+    def test__import_participants_no_userid(self):
+        context = self._meeting_fixture()
+        request = testing.DummyRequest()
+        obj = self._cut(context, request)
+        self.assertRaises(ValueError, obj._import_participants, u";password1;user1@test.com;Dummy;User\n", ("role:Admin", ))
+        
+    def test__import_participants_non_ascii(self):
+        context = self._meeting_fixture()
+        request = testing.DummyRequest()
+        obj = self._cut(context, request)
+        output = obj._import_participants(u"user1;password1;user1@test.com;Dömmy;用户\n", ("role:Admin", ))
+        self.assertEqual(output[0]['first_name'], u"Dömmy")
+        self.assertEqual(output[0]['last_name'], u"用户")
+        
+    def test__import_participants_multiple(self):
+        context = self._meeting_fixture()
+        request = testing.DummyRequest()
+        obj = self._cut(context, request)
+        output = obj._import_participants(u"user1;password1;user1@test.com;Dummy;User\nuser2;password2;user2@test.com;Dummy;User", 
+                                          ("role:Admin", ))
+        self.assertEqual(len(output), 2)
+        self.assertEqual(len(output[0]), 5)
+        self.assertEqual(output[0]['password'], u'password1')
+        self.assertEqual(output[0]['email'], u'user1@test.com')
+        self.assertEqual(output[0]['first_name'], u'Dummy')
+        self.assertEqual(output[0]['last_name'], u'User')
+        
+    def test__import_participants_multiple_duplicate_userid(self):
+        context = self._meeting_fixture()
+        request = testing.DummyRequest()
+        obj = self._cut(context, request)
+        output = obj._import_participants(u"user1;password1;user1@test.com;Dummy;User\nuser1;password2;user2@test.com;Dummy;User", 
+                                          ("role:Admin", ))
+        self.assertEqual(len(output), 2)
+        self.assertEqual(output[1]['userid'], u'user1-1')
         
     def test_add_participants_render_form(self):
         self.config.scan('voteit.importparticipants.schemas')
         self.config.testing_securitypolicy(userid='dummy',
                                            permissive=True)
-        context = _meeting_fixture(self.config)
+        context = self._meeting_fixture()
         request = testing.DummyRequest()
         obj = self._cut(context, request)
         response = obj.add_participants()
@@ -41,7 +130,7 @@ class AddParticipantsViewTests(unittest.TestCase):
         self.config.include('voteit.core.models.flash_messages')
         self.config.testing_securitypolicy(userid='dummy',
                                            permissive=True)
-        context = _meeting_fixture(self.config)
+        context = self._meeting_fixture()
         request = testing.DummyRequest(post={'cancel': 'cancel'})
         obj = self._cut(context, request)
         response = obj.add_participants()
@@ -51,8 +140,8 @@ class AddParticipantsViewTests(unittest.TestCase):
         self.config.scan('voteit.importparticipants.schemas')
         self.config.testing_securitypolicy(userid='admin',
                                            permissive=True)
-        _tz_vc_fixture(self.config)
-        context = _meeting_fixture(self.config)
+        self._tz_vc_fixture()
+        context = self._meeting_fixture()
         request = testing.DummyRequest(post = MultiDict([('csv', 'user1;;user1@test.com;Dummy;User\n'),
                                                          ('__start__', 'roles:sequence'),
                                                          ('checkbox', 'role:Admin'),
@@ -66,7 +155,7 @@ class AddParticipantsViewTests(unittest.TestCase):
         self.config.scan('voteit.importparticipants.schemas')
         self.config.testing_securitypolicy(userid='dummy',
                                            permissive=True)
-        context = _meeting_fixture(self.config)
+        context = self._meeting_fixture()
         request = testing.DummyRequest(post = MultiDict([('csv', ';password1;user1@test.com;Dummy;User\n'),
                                                          ('__start__', 'roles:sequence'),
                                                          ('checkbox', 'role:Admin'),
@@ -183,58 +272,3 @@ class CSVParticipantValidatorTests(unittest.TestCase):
         obj = self._cut(context, api)
         node = None
         self.assertRaises(colander.Invalid, obj, node, u"user1,pwd,user1@test.com,Dummy,User\n")
-
-
-class FunctionalTests(unittest.TestCase):
-    """ Important note about responses - if something goes wrong,
-        the view will return a dict and not a Response-object.
-        The dict won't have a body, so the test might return error instead of fail.
-    """
-    def setUp(self):
-        self.config = testing.setUp()
-        _tz_vc_fixture(self.config)
-        self.config.scan('voteit.importparticipants.schemas')
-
-    def tearDown(self):
-        testing.tearDown()
-    
-    @property
-    def _cut(self):
-        from voteit.importparticipants.views import AddParticipantsView
-        return AddParticipantsView
-
-    def _make_request(self, csv, roles=('role:Viewer',), add = 'add', **kw):
-        params = []
-        params.append(('csv', csv))
-        params.append(('__start__', 'roles:sequence'))
-        for role in roles:
-            params.append(('checkbox', role))
-        params.append(('__end__', 'roles:sequence'))
-        params.append(('add', add))
-        return testing.DummyRequest(post = MultiDict(params), **kw)
-
-    def test_no_pw(self):
-        self.config.testing_securitypolicy(userid='admin',
-                                           permissive=True)
-        _tz_vc_fixture(self.config)
-        context = _meeting_fixture(self.config)
-        csv = "user1;;user1@test.com;Dummy;User\n"
-        request = self._make_request(csv)
-        obj = self._cut(context, request)
-        response = obj.add_participants()
-        self.assertIsInstance(response, Response)
-        self.assertIn('1 participant added', response.body)
-
-
-def _meeting_fixture(config):
-    from voteit.core.models.meeting import Meeting
-    root = bootstrap_and_fixture(config)
-    root['m'] = meeting = Meeting()
-    return meeting
-
-def _tz_vc_fixture(config):
-    config.registry.settings['default_timezone_name'] = "Europe/Stockholm"
-    config.registry.settings['default_locale_name'] = 'sv'
-    config.include('voteit.core.models.date_time_util')
-    config.include('voteit.core.models.flash_messages')
-    config.scan('voteit.core.views.components')
