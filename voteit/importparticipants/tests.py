@@ -115,6 +115,21 @@ class AddParticipantsViewTests(unittest.TestCase):
         self.assertEqual(len(output), 2)
         self.assertEqual(output[1]['userid'], u'user1-1')
         
+    def test__import_participants_check_password(self):
+        context = self._meeting_fixture()
+        request = testing.DummyRequest()
+        obj = self._cut(context, request)
+        participants = []
+        for n in range(1, 100):
+            participants.append(u"user%s" % n)
+        output = obj._import_participants(u"\n".join(participants), ("role:Admin", ))
+        users = context.__parent__.users
+        for n in range(0, len(output)):
+            username = output[n]['userid']
+            password = output[n]['password']
+            pw_field = users[username].get_custom_field('password')
+            self.assertTrue(pw_field.check_input(password))
+        
     def test_add_participants_render_form(self):
         self.config.scan('voteit.importparticipants.schemas')
         self.config.testing_securitypolicy(userid='dummy',
