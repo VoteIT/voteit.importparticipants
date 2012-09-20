@@ -16,7 +16,8 @@ from voteit.core.models.meeting import Meeting
 class AddParticipantsViewTests(unittest.TestCase):
     
     def setUp(self):
-        self.config = testing.setUp()
+        self.request = testing.DummyRequest()
+        self.config = testing.setUp(request = self.request)
 
     def tearDown(self):
         testing.tearDown()
@@ -41,15 +42,13 @@ class AddParticipantsViewTests(unittest.TestCase):
     
     def test__generate_password(self):
         context = self._meeting_fixture()
-        request = testing.DummyRequest()
-        obj = self._cut(context, request)
+        obj = self._cut(context, self.request)
         value = obj._generate_password()
         self.assertEqual(len(value), 10)
     
     def test__import_participants(self):
         context = self._meeting_fixture()
-        request = testing.DummyRequest()
-        obj = self._cut(context, request)
+        obj = self._cut(context, self.request)
         output = obj._import_participants(u"user1;password1;user1@test.com;Dummy;User\n", ("role:Admin", ))
         self.assertEqual(len(output), 1)
         self.assertEqual(len(output[0]), 5)
@@ -60,8 +59,7 @@ class AddParticipantsViewTests(unittest.TestCase):
         
     def test__import_participants_empty_password(self):
         context = self._meeting_fixture()
-        request = testing.DummyRequest()
-        obj = self._cut(context, request)
+        obj = self._cut(context, self.request)
         output = obj._import_participants(u"user1;;user1@test.com;Dummy;User\n", ("role:Admin", ))
         self.assertEqual(len(output), 1)
         self.assertEqual(len(output[0]), 5)
@@ -69,8 +67,7 @@ class AddParticipantsViewTests(unittest.TestCase):
         
     def test__import_participants_short(self):
         context = self._meeting_fixture()
-        request = testing.DummyRequest()
-        obj = self._cut(context, request)
+        obj = self._cut(context, self.request)
         output = obj._import_participants(u"user1\n", ("role:Admin", ))
         self.assertEqual(len(output), 1)
         self.assertEqual(len(output[0]), 5)
@@ -81,22 +78,19 @@ class AddParticipantsViewTests(unittest.TestCase):
         
     def test__import_participants_no_userid(self):
         context = self._meeting_fixture()
-        request = testing.DummyRequest()
-        obj = self._cut(context, request)
+        obj = self._cut(context, self.request)
         self.assertRaises(ValueError, obj._import_participants, u";password1;user1@test.com;Dummy;User\n", ("role:Admin", ))
         
     def test__import_participants_non_ascii(self):
         context = self._meeting_fixture()
-        request = testing.DummyRequest()
-        obj = self._cut(context, request)
+        obj = self._cut(context, self.request)
         output = obj._import_participants(u"user1;password1;user1@test.com;Dömmy;用户\n", ("role:Admin", ))
         self.assertEqual(output[0]['first_name'], u"Dömmy")
         self.assertEqual(output[0]['last_name'], u"用户")
         
     def test__import_participants_multiple(self):
         context = self._meeting_fixture()
-        request = testing.DummyRequest()
-        obj = self._cut(context, request)
+        obj = self._cut(context, self.request)
         output = obj._import_participants(u"user1;password1;user1@test.com;Dummy;User\nuser2;password2;user2@test.com;Dummy;User", 
                                           ("role:Admin", ))
         self.assertEqual(len(output), 2)
@@ -108,8 +102,7 @@ class AddParticipantsViewTests(unittest.TestCase):
         
     def test__import_participants_multiple_duplicate_userid(self):
         context = self._meeting_fixture()
-        request = testing.DummyRequest()
-        obj = self._cut(context, request)
+        obj = self._cut(context, self.request)
         output = obj._import_participants(u"user1;password1;user1@test.com;Dummy;User\nuser1;password2;user2@test.com;Dummy;User", 
                                           ("role:Admin", ))
         self.assertEqual(len(output), 2)
@@ -117,8 +110,7 @@ class AddParticipantsViewTests(unittest.TestCase):
         
     def test__import_participants_check_password(self):
         context = self._meeting_fixture()
-        request = testing.DummyRequest()
-        obj = self._cut(context, request)
+        obj = self._cut(context, self.request)
         participants = []
         for n in range(1, 100):
             participants.append(u"user%s" % n)
@@ -135,8 +127,7 @@ class AddParticipantsViewTests(unittest.TestCase):
         self.config.testing_securitypolicy(userid='dummy',
                                            permissive=True)
         context = self._meeting_fixture()
-        request = testing.DummyRequest()
-        obj = self._cut(context, request)
+        obj = self._cut(context, self.request)
         response = obj.add_participants()
         self.assertIn('form', response)
 
