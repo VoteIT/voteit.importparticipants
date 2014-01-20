@@ -38,6 +38,5 @@ setup(name='voteit.importparticipants',
       message_extractors = { '.': [
               ('**.py',   'lingua_python', None ),
               ('**.pt',   'lingua_xml', None ),
-              ('**.zcml',   'lingua_zcml', None ),
               ]},
       )
