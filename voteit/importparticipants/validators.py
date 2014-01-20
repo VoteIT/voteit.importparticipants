@@ -6,7 +6,6 @@ from StringIO import StringIO
 from pyramid.traversal import find_root
 
 from voteit.core.validators import html_string_validator
-from voteit.core.validators import password_validation
 from voteit.core.validators import UniqueEmail
 from voteit.core.validators import NEW_USERID_PATTERN
 
@@ -56,12 +55,6 @@ class CSVParticipantValidator(object):
                         UniqueEmail(self.context)(node, row[2])
                     except colander.Invalid:
                         email.add("%s" % row[2])
-                # only validate password if there is a password
-                if len(row) > 1 and row[1]:
-                    try:
-                        password_validation(node, row[1])
-                    except colander.Invalid:
-                        password.add("%s" % row_count)
         except IndexError:
             raise colander.Invalid(node, _('add_participants_invalid_csv',
                                            default=u"""CSV file is not valid, make sure at least userid is specified on 

@@ -148,10 +148,12 @@ class AddParticipantsViewTests(unittest.TestCase):
                                            permissive=True)
         self._tz_vc_fixture()
         context = self._meeting_fixture()
-        request = testing.DummyRequest(post = MultiDict([('csv', 'user1;;user1@test.com;Dummy;User\n'),
+        request = testing.DummyRequest(context = context,
+                                       post = MultiDict([('csv', 'user1;;user1@test.com;Dummy;User\n'),
                                                          ('__start__', 'roles:sequence'),
                                                          ('checkbox', 'role:Admin'),
                                                          ('__end__', 'roles:sequence'),
+                                                         ('csrf_token', '0123456789012345678901234567890123456789'),
                                                          ('add', 'add')]))
         obj = self._cut(context, request)
         response = obj.add_participants()
@@ -264,13 +266,6 @@ class CSVParticipantValidatorTests(unittest.TestCase):
         obj = self._cut(context, api)
         node = None
         self.assertRaises(colander.Invalid, obj, node, u"user1;tester@voteit.se;Dummy;User\n")
-
-    def test_bad_password(self):
-        context = self._fixture()
-        api = self._api(context)
-        obj = self._cut(context, api)
-        node = None
-        self.assertRaises(colander.Invalid, obj, node, u"user1;pwd;user1@test.com;Dummy;User\n")
     
     def test_bad_csv_wrong_delimiter(self):
         context = self._fixture()

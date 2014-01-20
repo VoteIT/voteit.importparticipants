@@ -34,7 +34,7 @@
     </table>
     <br/>
     <a class="buttonize large"
-       tal:attributes="href api.resource_url(context, request)">
+       tal:attributes="href request.resource_url(context)">
         <span i18n:translate="">Back</span>
     </a><br/>
 </div> <!-- content -->
