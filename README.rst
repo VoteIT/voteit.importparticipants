@@ -1,6 +1,5 @@
-Bulk create/import particpants for VoteIT
-=========================================
+No longer maintained!
+=====================
 
-This is a plugin package for VoteIT that provides functionality
-to bulk create participants. It's part of the VoteIT Mix project
-to enable VoteIT to be used in live on-site meetings.
+This package is outdated and no longer maintained, since no organisation seems to have any need for it.
+It won't work with newer versions of VoteIT.
